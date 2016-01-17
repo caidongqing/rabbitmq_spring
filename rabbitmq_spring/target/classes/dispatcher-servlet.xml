@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd   
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-3.0.xsd  
+    http://www.springframework.org/schema/mvc
+    http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd
+    http://www.springframework.org/schema/aop
+    http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+    http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd
+    http://www.springframework.org/schema/rabbit
+    http://www.springframework.org/schema/rabbit/spring-rabbit-1.0.xsd">
+	
+    <mvc:annotation-driven/>
+    <context:annotation-config/>
+    <!--<aop:aspectj-autoproxy />-->
+    <context:component-scan base-package="mq.*"/>
+    
+    <task:executor id="taskExecutor" pool-size="1-4" queue-capacity="128"/>
+    
+   <bean id="configProperties"
+          class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <list>
+                <value>classpath:rabbitmq.properties</value>
+            </list>
+        </property>
+    </bean>
+    
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer">
+        <property name="properties" ref="configProperties" />
+    </bean>
+   <!--  <context:property-placeholder location="classpath:rabbitmq.properties"/> -->
+    
+    <rabbit:connection-factory id="connectionFactory" host="${rabbitmq.host}" username="${rabbitmq.username}" password="${rabbitmq.password}" port="${rabbitmq.port}"/>
+	<rabbit:admin connection-factory="connectionFactory"/>
+    <rabbit:queue id="queue_one" durable="true" auto-delete="false" exclusive="false" name="queue_one"/>
+    <rabbit:direct-exchange name="my-mq-exchange" durable="true" auto-delete="false" id="my-mq-exchange">
+        <rabbit:bindings>
+            <rabbit:binding queue="queue_one" key="queue_one_key"/>
+        </rabbit:bindings>
+    </rabbit:direct-exchange>
+    
+    <bean id="queueOneLitener" class="mq.service.QueueOneLitener"/>
+    <bean id="jsonMessageConverter" class="mq.util.FastJsonMessageConverter"></bean>
+    <rabbit:template id="amqpTemplate" exchange="my-mq-exchange" connection-factory="connectionFactory" message-converter="jsonMessageConverter"/>
+    
+    <rabbit:listener-container connection-factory="connectionFactory" acknowledge="auto" task-executor="taskExecutor">
+        <rabbit:listener queues="queue_one" ref="queueOneLitener"/>
+ 	</rabbit:listener-container>
+</beans>

@@ -1,0 +1,4 @@
+mq\util\FastJsonMessageConverter.class
+mq\service\ProducerMq.class
+mq\controller\MessageController.class
+mq\service\QueueOneLitener.class
